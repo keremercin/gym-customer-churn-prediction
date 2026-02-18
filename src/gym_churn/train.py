@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import joblib
@@ -8,42 +9,48 @@ from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 
-from gym_churn.data import load_dataset, split_xy
+from gym_churn.data import load_data, split_xy
 from gym_churn.preprocess import make_preprocessor
+
+APP_VERSION = "0.5.0"
+
+
+def _models(random_state: int = 42):
+    return {
+        "logistic_regression": LogisticRegression(max_iter=1000, random_state=random_state),
+        "random_forest": RandomForestClassifier(n_estimators=300, random_state=random_state),
+    }
 
 
 def train_and_eval(
     data_path: str = "data/gym_churn_us.csv",
     model_out: str = "models/best_model.joblib",
     metrics_out: str = "reports/metrics.csv",
-):
-    df = load_dataset(data_path)
+    random_state: int = 42,
+) -> dict:
+    df = load_data(data_path)
     x, y = split_xy(df)
-    x_train, x_val, y_train, y_val = train_test_split(x, y, test_size=0.2, stratify=y, random_state=42)
 
-    models = {
-        "logistic_regression": LogisticRegression(max_iter=1000, random_state=42),
-        "random_forest": RandomForestClassifier(n_estimators=250, random_state=42),
-    }
+    x_train, x_val, y_train, y_val = train_test_split(
+        x, y, test_size=0.2, stratify=y, random_state=random_state
+    )
 
+    pre = make_preprocessor()
     rows = []
     best_name = None
-    best_f1 = -1
+    best_f1 = -1.0
     best_pipe = None
 
-    for name, model in models.items():
-        pipe = Pipeline([
-            ("prep", make_preprocessor()),
-            ("model", model),
-        ])
+    for name, model in _models(random_state=random_state).items():
+        pipe = Pipeline(steps=[("preprocessor", pre), ("model", model)])
         pipe.fit(x_train, y_train)
+
         pred = pipe.predict(x_val)
         prob = pipe.predict_proba(x_val)[:, 1]
 
         acc = float(accuracy_score(y_val, pred))
         f1 = float(f1_score(y_val, pred))
         auc = float(roc_auc_score(y_val, prob))
-
         rows.append({"model": name, "accuracy": acc, "f1": f1, "roc_auc": auc})
 
         if f1 > best_f1:
@@ -51,13 +58,35 @@ def train_and_eval(
             best_name = name
             best_pipe = pipe
 
-    Path("models").mkdir(parents=True, exist_ok=True)
+    metrics_df = pd.DataFrame(rows).sort_values("f1", ascending=False)
     Path("reports").mkdir(parents=True, exist_ok=True)
+    Path("models").mkdir(parents=True, exist_ok=True)
 
-    pd.DataFrame(rows).sort_values("f1", ascending=False).to_csv(metrics_out, index=False)
+    metrics_df.to_csv(metrics_out, index=False)
+    Path("reports/metrics.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "1.0",
+                "project": "gym-customer-churn-prediction",
+                "model_version": APP_VERSION,
+                "best_model": best_name,
+                "best_f1": round(best_f1, 4),
+                "metrics": metrics_df.to_dict(orient="records"),
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
     joblib.dump(best_pipe, model_out)
 
-    return {"best_model": best_name, "best_f1": best_f1, "metrics_path": metrics_out, "model_path": model_out}
+    return {
+        "best_model": best_name,
+        "best_f1": best_f1,
+        "metrics": metrics_df.to_dict(orient="records"),
+        "model_path": model_out,
+        "metrics_path": metrics_out,
+        "metrics_json_path": "reports/metrics.json",
+    }
 
 
 def predict(payload: dict, model_path: str = "models/best_model.joblib") -> dict:
