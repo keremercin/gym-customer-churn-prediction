@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gym-customer-churn-prediction"
+version = "0.2.0"
+description = "Gym churn prediction pipeline with API inference"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "pandas>=2.2.2",
+  "numpy>=2.0.1",
+  "scikit-learn>=1.5.1",
+  "joblib>=1.4.2",
+  "fastapi>=0.115.0",
+  "uvicorn[standard]>=0.30.0",
+  "pydantic>=2.8.2",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3.2",
+  "httpx>=0.27.0",
+  "ruff>=0.5.7",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+addopts = "-q"
