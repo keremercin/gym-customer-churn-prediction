@@ -9,7 +9,7 @@ from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 
-from gym_churn.data import load_data, split_xy
+from gym_churn.data import load_dataset, split_xy
 from gym_churn.preprocess import make_preprocessor
 
 APP_VERSION = "0.5.0"
@@ -28,7 +28,7 @@ def train_and_eval(
     metrics_out: str = "reports/metrics.csv",
     random_state: int = 42,
 ) -> dict:
-    df = load_data(data_path)
+    df = load_dataset(data_path)
     x, y = split_xy(df)
 
     x_train, x_val, y_train, y_val = train_test_split(
