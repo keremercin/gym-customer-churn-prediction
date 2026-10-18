@@ -3,8 +3,9 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from gym_churn.train import predict
 from pydantic import BaseModel
+
+from gym_churn.train import predict
 
 APP_VERSION = "0.5.0"
 app = FastAPI(title="Gym Churn Prediction API", version=APP_VERSION)

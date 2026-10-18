@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+
 from gym_churn.api.main import app
 from gym_churn.train import train_and_eval
 
