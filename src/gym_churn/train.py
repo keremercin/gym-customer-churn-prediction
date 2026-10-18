@@ -13,6 +13,7 @@ from gym_churn.data import load_dataset, split_xy
 from gym_churn.preprocess import make_preprocessor
 
 APP_VERSION = "0.5.0"
+DEFAULT_SYNTHETIC_DATASET = Path(__file__).resolve().parents[2] / "data" / "gym_churn_us.csv"
 
 
 def _models(random_state: int = 42):
@@ -28,6 +29,7 @@ def train_and_eval(
     metrics_out: str = "reports/metrics.csv",
     random_state: int = 42,
 ) -> dict:
+    uses_bundled_synthetic_data = Path(data_path).resolve() == DEFAULT_SYNTHETIC_DATASET
     df = load_dataset(data_path)
     x, y = split_xy(df)
 
@@ -68,7 +70,19 @@ def train_and_eval(
             {
                 "schema_version": "1.0",
                 "project": "gym-customer-churn-prediction",
-                "model_version": APP_VERSION,
+                "app_version": APP_VERSION,
+                "dataset_kind": (
+                    "synthetic_generated" if uses_bundled_synthetic_data else "user_provided"
+                ),
+                "label_rule": (
+                    "rule in scripts/generate_sample_data.py"
+                    if uses_bundled_synthetic_data
+                    else "not verified in this repository"
+                ),
+                "evaluation_method": (
+                    "single stratified validation split; "
+                    "model selection and reporting use the same split"
+                ),
                 "best_model": best_name,
                 "best_f1": round(best_f1, 4),
                 "metrics": metrics_df.to_dict(orient="records"),
@@ -92,5 +106,5 @@ def train_and_eval(
 def predict(payload: dict, model_path: str = "models/best_model.joblib") -> dict:
     model = joblib.load(model_path)
     x = pd.DataFrame([payload])
-    p = float(model.predict_proba(x)[0][1])
-    return {"will_churn": bool(p >= 0.5), "churn_probability": round(p, 4)}
+    score = float(model.predict_proba(x)[0][1])
+    return {"churn_class_prediction": bool(score >= 0.5), "churn_score": round(score, 4)}

@@ -3,9 +3,8 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
-
 from gym_churn.train import predict
+from pydantic import BaseModel
 
 APP_VERSION = "0.5.0"
 app = FastAPI(title="Gym Churn Prediction API", version=APP_VERSION)
@@ -21,11 +20,17 @@ class PredictRequest(BaseModel):
     support_tickets: float
 
 
-def api_response(*, data: Any = None, status: str = "ok", error: Any = None, latency_ms: int = 0) -> dict:
+def api_response(
+    *,
+    data: Any = None,
+    status: str = "ok",
+    error: Any = None,
+    latency_ms: int | None = None,
+) -> dict:
     return {
         "status": status,
         "data": data if data is not None else {},
-        "meta": {"model_version": APP_VERSION, "latency_ms": latency_ms},
+        "meta": {"app_version": APP_VERSION, "latency_ms": latency_ms},
         "error": error,
     }
 
@@ -36,7 +41,11 @@ async def validation_exception_handler(_: Request, exc: RequestValidationError):
         status_code=422,
         content=api_response(
             status="error",
-            error={"code": "VALIDATION_ERROR", "message": "Invalid request payload", "details": exc.errors()},
+            error={
+                "code": "VALIDATION_ERROR",
+                "message": "Invalid request payload",
+                "details": exc.errors(),
+            },
         ),
     )
 
@@ -45,7 +54,10 @@ async def validation_exception_handler(_: Request, exc: RequestValidationError):
 async def http_exception_handler(_: Request, exc: HTTPException):
     return JSONResponse(
         status_code=exc.status_code,
-        content=api_response(status="error", error={"code": "HTTP_ERROR", "message": str(exc.detail)}),
+        content=api_response(
+            status="error",
+            error={"code": "HTTP_ERROR", "message": str(exc.detail)},
+        ),
     )
 
 
